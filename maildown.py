@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio, aiodns
 import logging
+import multiprocessing
 from itertools import cycle
 
 import anyio
@@ -58,6 +59,14 @@ async def list_mx(mail_host, proxy_iterator, sleep_delay, concurrency):
     await asyncio.gather(*my_arr)
 
 
+def process(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose):
+    config_logger(verbose, log_to_stdout)
+    uvloop.install()
+    proxy_iterator = cycle(load_proxies(proxy_file, proxy_url, shuffle=shuffle_proxy))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(list_mx(host, proxy_iterator, sleep_delay, concurrency))
+
+
 @click.command(help="Run MX checker")
 @click.option('--host', help='target host')
 @click.option('--sleep-delay', help='sleep time', type=int, default=100)
@@ -67,18 +76,29 @@ async def list_mx(mail_host, proxy_iterator, sleep_delay, concurrency):
 @click.option('--proxy-file', help='path to file with proxy list')
 @click.option('--shuffle-proxy', help='Shuffle proxy list on application start', is_flag=True, default=False)
 @click.option('--concurrency', help='concurrency level', type=int, default=1)
+@click.option('--restart-period', help='period in seconds to restart application (reload proxies ans targets)', type=int)
 def main(
         host: str, sleep_delay: int, verbose: int, log_to_stdout: bool,
         proxy_url: str, proxy_file: str, shuffle_proxy: bool,
-        concurrency: int
+        concurrency: int, restart_period: int,
 ):
     if not proxy_url and not proxy_file:
         raise SystemExit('--proxy-url or --proxy-file is required')
     config_logger(verbose, log_to_stdout)
-    uvloop.install()
-    proxy_iterator = cycle(load_proxies(proxy_file, proxy_url, shuffle=shuffle_proxy))
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(list_mx(host, proxy_iterator, sleep_delay, concurrency))
+
+    while True:
+        proc = multiprocessing.Process(
+            target=process,
+            args=(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose)
+        )
+        proc.start()
+        proc.join(restart_period)
+        if proc.exitcode is None:
+            logging.info('Killing the process by restart period')
+            proc.kill()
+            proc.join()
+        if restart_period is None:
+            break
 
 
 if __name__ == '__main__':
