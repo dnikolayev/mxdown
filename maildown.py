@@ -31,13 +31,14 @@ async def check_mx(host: str, mail_host: str, proxy_iterator: Iterable[ProxyData
             proxy = Proxy.from_url(proxy_url)
             logging.info('[%s - %s] with proxy %s', mail_host, host, proxy_url)
             stream = await proxy.connect(dest_host=host, dest_port=25)
-
+            response = await stream.anyio_stream.receive()
+            logging.debug("[%s - %s] Welcome response: %s", mail_host, host, response)
             await stream.anyio_stream.send(bytes(f'EHLO {mail_host}\r\n', encoding="utf8"))
 
             response = await stream.anyio_stream.receive()
-            logging.debug("[%s - %s] EHLO response: %s", mail_host, host, response)
-            await stream.anyio_stream.send(b'MAIL FROM:<johndoe@nowhere.com>\r\n')
-            response = await stream.anyio_stream.receive()
+            #logging.debug("[%s - %s] EHLO response: %s", mail_host, host, response)
+            #await stream.anyio_stream.send(b'MAIL FROM:<johndoe@nowhere.com>\r\n')
+            #response = await stream.anyio_stream.receive()
             logging.debug('[%s - %s] MAIL FROM response: %s', mail_host, host, response)
             logging.debug('[%s - %s] Sleeping for %s seconds', mail_host, host, sleep_delay)
             await anyio.sleep(sleep_delay)
