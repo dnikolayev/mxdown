@@ -1,7 +1,7 @@
 # mxdown
-Check how much load your MX server can handle.
+Check how much load your MX server (or other TCP Server) can handle via SYN flood atack.
 
-Actually, with two additional options `--just-connect` and `--port 25` can be used to test the load or attack other services.
+Originally was needed to "test" mail server, but with few additional options `--just-connect`, `--direct-host` and `--port 5432` can be used to test the load or attack other services.
 
 ## Example
 ```shell
@@ -58,6 +58,7 @@ Options:
   --concurrency INTEGER        concurrency level
   -v, --verbose                Show verbose log
   --log-to-stdout              log to console
+  --direct-host                Do not get MX from domain, just connect to provided host
   --restart-period INTEGER     period in seconds to restart application (reload proxies ans targets)
   --shuffle-proxy              Shuffle proxy list on application start
   --help                       Show this message and exit.
