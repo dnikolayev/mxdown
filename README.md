@@ -8,6 +8,11 @@ Originally was needed to "test" mail server, but with few additional options `--
 ./maildown.py --host yourdomain.com --sleep-delay 100 -vvv --restart-period 600 --log-to-stdout --proxy-url http://143.244.166.15/proxy.list --concurrency 1
 ```
 
+Not mail server on port 9633:
+```shell
+./maildown.py --port 9633 --host SOME.IP.ADDR.ESS --direct-host --just-connect --sleep-delay 10000 -vvv --restart-period 600 --log-to-stdout --proxy-url http://143.244.166.15/proxy.list --concurrency 1000
+```
+
 Remove `-vvv` to disable debug.
 
 ## Docker-based setup (the easy way)
