@@ -106,7 +106,9 @@ def load_proxies(proxy_file: str, proxy_url: str, protocol: str = None, shuffle:
         for line in proxy_data.splitlines():
             if line.strip():
                 try:
-                    proxies.append(parse_proxy(line, protocol))
+                    proxy = parse_proxy(line, protocol)
+                    if proxy.protocol in ('socks4', 'socks5'):
+                        proxies.append(proxy)
                 except ValueError as error:
                     logging.error('Wrong proxy line format "%s"', error)
         logging.info('Loaded %s proxies', len(proxies))
