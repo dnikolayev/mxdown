@@ -25,23 +25,25 @@ async def dns_query(name: str, query_type: str):
     return await resolver.query(name, query_type)
 
 
-async def check_mx(host: str, mail_host: str, proxy_iterator: Iterable[ProxyDataClass], sleep_delay: int = 1000):
+async def check_mx(host: str, mail_host: str, port: int, proxy_iterator: Iterable[ProxyDataClass],
+                   just_connect: bool = False, sleep_delay: int = 1000):
     while True:
         try:
             proxy_url = get_proxy(proxy_iterator).get_formatted()
             proxy = Proxy.from_url(proxy_url)
             logging.info('[%s - %s] with proxy %s', mail_host, host, proxy_url)
-            stream = await proxy.connect(dest_host=host, dest_port=25)
+            stream = await proxy.connect(dest_host=host, dest_port=port)
             response = await stream.anyio_stream.receive()
             logging.debug("[%s - %s] Welcome response: %s", mail_host, host, response)
-            await stream.anyio_stream.send(bytes(f'EHLO {mail_host}\r\n', encoding="utf8"))
+            if not just_connect:
+                await stream.anyio_stream.send(bytes(f'EHLO {mail_host}\r\n', encoding="utf8"))
 
-            response = await stream.anyio_stream.receive()
-            #logging.debug("[%s - %s] EHLO response: %s", mail_host, host, response)
-            #await stream.anyio_stream.send(b'MAIL FROM:<johndoe@nowhere.com>\r\n')
-            #response = await stream.anyio_stream.receive()
-            logging.debug('[%s - %s] MAIL FROM response: %s', mail_host, host, response)
-            logging.debug('[%s - %s] Sleeping for %s seconds', mail_host, host, sleep_delay)
+                response = await stream.anyio_stream.receive()
+                #logging.debug("[%s - %s] EHLO response: %s", mail_host, host, response)
+                #await stream.anyio_stream.send(b'MAIL FROM:<johndoe@nowhere.com>\r\n')
+                #response = await stream.anyio_stream.receive()
+                logging.debug('[%s - %s] MAIL FROM response: %s', mail_host, host, response)
+                logging.debug('[%s - %s] Sleeping for %s seconds', mail_host, host, sleep_delay)
             await anyio.sleep(sleep_delay)
             logging.debug('[%s - %s] done', mail_host, host)
         except Exception as error:
@@ -49,29 +51,33 @@ async def check_mx(host: str, mail_host: str, proxy_iterator: Iterable[ProxyData
             await anyio.sleep(1)
 
 
-async def list_mx(mail_host, proxy_iterator, sleep_delay, concurrency):
+async def list_mx(mail_host, port, proxy_iterator, sleep_delay, concurrency, just_connect):
     data = await dns_query(mail_host, 'MX')
     logging.info('dns resolved started')
     my_arr = []
     for k in range(0, concurrency):
         for i in data:
-            my_arr.append(check_mx(i.host, mail_host, proxy_iterator, sleep_delay=sleep_delay))
+            my_arr.append(check_mx(i.host, mail_host, port, proxy_iterator, just_connect=just_connect,
+                                   sleep_delay=sleep_delay))
     await asyncio.gather(*my_arr)
 
 
-def process(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose):
+def process(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose,
+            just_connect, port):
     config_logger(verbose, log_to_stdout)
     uvloop.install()
     proxy_iterator = cycle(load_proxies(proxy_file, proxy_url, shuffle=shuffle_proxy))
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(list_mx(host, proxy_iterator, sleep_delay, concurrency))
+    loop.run_until_complete(list_mx(host, port, proxy_iterator, sleep_delay, concurrency, just_connect))
 
 
 @click.command(help="Run MX checker")
 @click.option('--host', help='target host')
+@click.option('--port', help='Port to connect, default: 25', type=int, default=25)
 @click.option('--sleep-delay', help='sleep time', type=int, default=100)
 @click.option('-v', '--verbose', help='Show verbose log', count=True)
 @click.option('--log-to-stdout', help='log to console', is_flag=True)
+@click.option('--just-connect', help='Just connect', is_flag=True)
 @click.option('--proxy-url', help='url to proxy resourse')
 @click.option('--proxy-file', help='path to file with proxy list')
 @click.option('--shuffle-proxy', help='Shuffle proxy list on application start', is_flag=True, default=False)
@@ -81,6 +87,7 @@ def main(
         host: str, sleep_delay: int, verbose: int, log_to_stdout: bool,
         proxy_url: str, proxy_file: str, shuffle_proxy: bool,
         concurrency: int, restart_period: int,
+        just_connect: bool, port: int
 ):
     if not proxy_url and not proxy_file:
         raise SystemExit('--proxy-url or --proxy-file is required')
@@ -89,7 +96,8 @@ def main(
     while True:
         proc = multiprocessing.Process(
             target=process,
-            args=(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose)
+            args=(concurrency, host, log_to_stdout, proxy_file, proxy_url, shuffle_proxy, sleep_delay, verbose,
+            just_connect, port)
         )
         proc.start()
         proc.join(restart_period)
