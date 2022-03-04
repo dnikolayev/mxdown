@@ -3,18 +3,23 @@ Check how much load your MX server can handle.
 
 Actually, with two additional options `--just-connect` and `--port 25` can be used to test the load or attack other services.
 
-##Example
+## Example
 ```shell
 ./maildown.py --host yourdomain.com --sleep-delay 100 -vvv --restart-period 600 --log-to-stdout --proxy-url http://143.244.166.15/proxy.list --concurrency 1
 ```
 
-```shell
-docker run -it 7d05576ba889  --host yourdomain.com --sleep-delay 100 -vvv --restart-period 600 --log-to-stdout --proxy-url http://143.244.166.15/proxy.list --concurrency 1
-```
-To disable debug, please remove `-vvv`
+Remove `-vvv` to disable debug.
 
-## Docker run (easy way)
-Docker was added to the project - please use it.
+## Docker-based setup (the easy way)
+### Build
+
+```docker build -t mxdown .```
+
+### Run
+
+```shell
+docker run -it mxdown  --host yourdomain.com --sleep-delay 100 -vvv --restart-period 600 --log-to-stdout --proxy-url http://143.244.166.15/proxy.list --concurrency 1
+```
 
 ## Install
 ### Linux
